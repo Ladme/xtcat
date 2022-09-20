@@ -8,8 +8,6 @@
 #include <string.h>
 #include <stdint.h>
 
-const uint32_t MAGIC_NUMBER = 1995;
-
 /* Reads a 32 bit number from xdr file at target position (in bytes from the start of the file). */
 uint32_t read_xdr_int(FILE *file, size_t pos)
 {
@@ -78,12 +76,9 @@ int main(int argc, char **argv)
         if (i != 0) {
             // we have to include the size of the header (92 bytes)
             start = read_xdr_int(input, 88) + 92;
-            // there may be some padding, so we loop byte by byte until we find the magic number
-            uint32_t magic = read_xdr_int(input, start);
-            while (magic != MAGIC_NUMBER) {
-                ++start;
-                magic = read_xdr_int(input, start);   
-            }
+            // the size of the frame in bytes must be divisible by 4
+            // therefore, we add some padding
+            if (start % 4 != 0) start += 4 - (start % 4);
         }
 
         fseek(input, 0, SEEK_END);
