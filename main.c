@@ -100,6 +100,7 @@ int main(int argc, char **argv)
         fwrite(buffer, filelen, 1, output);
         free(buffer);
 
+        fflush(output);
     }
 
     fclose(output);
