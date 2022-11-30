@@ -1,6 +1,6 @@
 # xtcat_rs: Rust version of xtcat
 
-`xtcat_rs` is a Rust version of the C version [xtcat](https://github.com/Ladme/xtcat). Little safer with less limitations than the C version.
+`xtcat_rs` is a Rust version of the C program [xtcat](https://github.com/Ladme/xtcat). Little safer with less limitations than the C version.
 
 It is to be used **only** for concatenating xtc files that come from simulation runs directly following each other. `xtcat_rs` is actually just a slightly smarter `cat` as it stitches all xtc files together while **removing the first frame of the trajectory from every xtc file except for the first one**. In other words, `xtcat` assumes that the first frame of the concatenated trajectory is the same as the last frame of the previous trajectory (but does not check in any way whether this is actually true) and removes it to avoid duplicate frames.
 
