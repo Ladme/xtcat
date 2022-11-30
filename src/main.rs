@@ -80,6 +80,14 @@ fn parse_arguments(args: &Vec<String>) -> (Vec<String>, String) {
 fn main() {
     let args: Vec<String> = env::args().collect();
 
+    // help option
+    for arg in args.iter() {
+        if arg == "-h" || arg == "--help" {
+            println!("Usage: {} -f XTC_FILE1 XTC_FILE2 ... -o OUTPUT_XTC", args[0]);
+            process::exit(0);
+        }
+    }
+
     // sanity check the arguments
     if args.len() < 3 {
         eprintln!("Incorrect number of arguments.");
