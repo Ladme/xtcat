@@ -31,8 +31,6 @@ fn add_xtc(input_path: &str, output: &mut File, remove_first_frame: bool) -> Res
         }
     }
 
-    println!("Start: {}", start);
-
     // get length of the file
     let file_len = input.seek(SeekFrom::End(0))?;
 
@@ -41,9 +39,7 @@ fn add_xtc(input_path: &str, output: &mut File, remove_first_frame: bool) -> Res
 
     // load the contents of the input file
     let mut input_file_contents: Vec<u8> = Vec::with_capacity((file_len as usize) - (start as usize));
-    println!("{} {} {}", file_len, start, (file_len as usize) - (start as usize));
-    let total_read = input.read_to_end(&mut input_file_contents)?;
-    println!("Total read: {} bytes", total_read);
+    input.read_to_end(&mut input_file_contents)?;
 
     // write the contents of the file to the output
     output.write_all(&input_file_contents)?;
@@ -52,27 +48,65 @@ fn add_xtc(input_path: &str, output: &mut File, remove_first_frame: bool) -> Res
 
 }
 
+fn parse_arguments(args: &Vec<String>) -> (Vec<String>, String) {
+    let mut input_files = Vec::new();
+    let mut output_file = String::from("output.xtc");
+
+    let mut input_block = false;
+    for mut i in 1..args.len() {
+        if args[i] == "-o" {
+            i += 1;
+            output_file = args[i].clone();
+            input_block = false;
+            continue;
+        }
+
+        if input_block {
+            input_files.push(args[i].clone());
+            continue;
+        }
+
+        if args[i] == "-f" {
+            input_block = true;
+        }
+    }
+
+    (input_files, output_file)
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     // sanity check the arguments
-    if args.len() < 2 {
+    if args.len() < 3 {
         eprintln!("Incorrect number of arguments.");
         println!("Usage: {} -f XTC_FILE1 XTC_FILE2 ... -o OUTPUT_XTC", args[0]);
         process::exit(1);
     }
 
+    // get input files and output file
+    let (input_files, output_file) = parse_arguments(&args);
+
+    print!("Concatenating {} files: ", input_files.len());
+    for file in input_files.iter() {
+        print!("{} ", &file);
+    }
+    println!("\nOutput file: {}\n", &output_file);
+
     // open output file
-    let mut output = match File::create("output.xtc") {
+    let mut output = match File::create(&output_file) {
         Ok(file) => file,
         Err(error) => {
-            eprintln!("Error. Output file {} could not be opened for writing [{}]", "output.xtc", error);
-            process::exit(2);
+            eprintln!("Error. Output file {} could not be opened for writing [{}]", &output_file, error);
+            process::exit(1);
         }
     };
 
     let mut remove_first_frame = false;
-    for file in args[1..args.len()].iter() {
+    for file in input_files.iter() {
+        println!("Concatenating file {}...", &file);
+        io::stdout().flush().unwrap();
+
         match add_xtc(&file, &mut output, remove_first_frame) {
             Ok(_) => (),
             Err(error) => {
@@ -82,9 +116,5 @@ fn main() {
         }
         remove_first_frame = true;
     }
-    
-
-    
-    
 
 }
