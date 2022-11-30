@@ -2,6 +2,8 @@
 
 `xtcat` is a simple and fast concatenator of xtc files. It is to be used **only** for concatenating xtc files that come from simulation runs directly following each other. `xtcat` is actually just a slightly smarter `cat` as it stitches all xtc files together while **removing the first frame of the trajectory from every xtc file except for the first one**. In other words, `xtcat` assumes that the first frame of the concatenated trajectory is the same as the last frame of the previous trajectory (but does not check in any way whether this is actually true) and removes it to avoid duplicate frames.
 
+See also the Rust version of this program, [xtcat_rs](https://github.com/Ladme/xtcat_rs).
+
 ## Installation
 
 1) Run `make` to create a binary file `xtcat`.
