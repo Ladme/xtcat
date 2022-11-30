@@ -1,3 +1,6 @@
+// Released under MIT License.
+// Copyright (c) 2022 Ladislav Bartos
+
 use std::env;
 use std::fs::File;
 use std::io::{self, Read, Write, Seek, SeekFrom};
