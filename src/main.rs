@@ -81,7 +81,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     // help option
-    for arg in args.iter() {
+    for arg in &args {
         if arg == "-h" || arg == "--help" {
             println!("Usage: {} -f XTC_FILE1 XTC_FILE2 ... -o OUTPUT_XTC", args[0]);
             process::exit(0);
@@ -99,7 +99,7 @@ fn main() {
     let (input_files, output_file) = parse_arguments(&args);
 
     print!("Concatenating {} files: ", input_files.len());
-    for file in input_files.iter() {
+    for file in &input_files {
         print!("{} ", &file);
     }
     println!("\nOutput file: {}\n", &output_file);
@@ -114,7 +114,7 @@ fn main() {
     };
 
     let mut remove_first_frame = false;
-    for file in input_files.iter() {
+    for file in &input_files {
         println!("Concatenating file {}...", &file);
         io::stdout().flush().unwrap();
 
