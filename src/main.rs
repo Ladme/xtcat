@@ -1,8 +1,9 @@
 // Released under MIT License.
 // Copyright (c) 2022-2023 Ladislav Bartos
 
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
 use std::process;
 
 use clap::Parser;
@@ -24,9 +25,12 @@ struct Args {
     /// Name of the output file to save the concatenated trajectory to
     #[clap(short = 'o', long = "output", required = true)]
     output: String,
-    /// Do not print anything to standard output.
+    /// Do not print anything to standard output
     #[clap(short = 's', long = "silent")]
     silent: bool,
+    /// Overwrite any file sharing the name with the output file
+    #[clap(long = "overwrite")]
+    overwrite: bool,
 }
 
 /// Read an integer from an xdr file.
@@ -80,31 +84,95 @@ fn add_xtc(input_path: &str, output: &mut File, remove_first_frame: bool) -> Res
 
 /// Clear the terminal screen.
 fn clear_progress(len: u16) {
-    print!("{}", cursor::Up(len));
+    print!("{}", cursor::Up(len + 2));
     print!("{}", clear::AfterCursor);
 }
 
-/// Print the current progress with reading input files.
+/// Print the current progress of reading input files.
 fn print_progress(input_files: &Vec<String>, current_index: usize, success: bool) {
     for (i, file) in input_files.iter().enumerate() {
+        let trajectory = format!("[XTC {}]", i + 1);
+
         if !success && i == current_index - 1 {
-            println!("{}", file.red());
+            println!("{:12} {} {}", trajectory, file.red(), "✖".red());
             continue;
         }
 
         if i < current_index {
-            println!("{}", file.green());
+            println!("{:12} {} {}", trajectory, file.green(), "✓".green());
+        } else if i == current_index && success {
+            println!("{:12} {} {}", trajectory, file.yellow(), "⚙".yellow());
         } else {
-            println!("{}", file);
+            println!("{:12} {} ⧗", trajectory, file);
         };
     }
+
+    if current_index == input_files.len() && success {
+        println!(
+            "[{}]       {}/{} files concatenated\n",
+            "DONE".green(),
+            current_index.to_string().green(),
+            input_files.len()
+        );
+    } else if success {
+        println!(
+            "[{}]    {}/{} files concatenated\n",
+            "RUNNING".yellow(),
+            current_index.to_string().yellow(),
+            input_files.len()
+        );
+    } else {
+        println!(
+            "[{}]     {}/{} files concatenated\n",
+            "FAILED".red(),
+            (current_index - 1).to_string().red(),
+            input_files.len()
+        );
+    }
+}
+
+/// Create a suitable name for backing up a file.
+fn name_for_backup(path: &Path) -> PathBuf {
+    let parent = path.parent().unwrap_or_else(|| Path::new(""));
+    let filename = path.file_name().unwrap().to_string_lossy();
+    let mut number = 1;
+
+    let mut new_path = parent.join(format!("#{}.{}#", filename, number));
+
+    while new_path.exists() {
+        number += 1;
+        new_path = parent.join(format!("#{}.{}#", filename, number));
+    }
+
+    new_path
 }
 
 fn main() {
     let args = Args::parse();
 
     if !args.silent {
-        println!("{}", "\nXTCAT v0.3.0\n".bold());
+        println!("{}", "\n   >> XTCAT v0.3.1 <<\n".bold());
+    }
+
+    // check that the output file does not already exist
+    // if it does, back it up
+    if !args.overwrite {
+        let path = Path::new(&args.output);
+        if path.exists() {
+            let new_path = name_for_backup(path);
+
+            fs::rename(Path::new(&args.output), Path::new(&new_path))
+                .expect("Panic! Could not backup file.");
+
+            if !args.silent {
+                let output = format!(
+                    "Output file '{}' already exists. Backing it up as '{}'",
+                    &args.output,
+                    &new_path.to_str().unwrap()
+                );
+                println!("[OUTPUT]     {}", output.yellow());
+            }
+        }
     }
 
     // open output file
@@ -120,13 +188,8 @@ fn main() {
         }
     };
 
-    // print input file
+    // print initial progress
     if !args.silent {
-        println!(
-            "Concatenating {} files into '{}'...",
-            &args.input_files.len(),
-            &args.output.green()
-        );
         print_progress(&args.input_files, 0, true);
     }
 
@@ -147,7 +210,7 @@ fn main() {
                     print_progress(&args.input_files, i + 1, false);
                 }
                 let error = format!("Error. Could not read file '{}'. Aborting...", file);
-                println!("\n{}", error.red().bold());
+                println!("{}", error.red().bold());
 
                 process::exit(2);
             }
@@ -158,7 +221,7 @@ fn main() {
     drop(output);
 
     if !args.silent {
-        let result = format!("\nSuccessfully written output file '{}'.", &args.output);
+        let result = format!("Successfully written output file '{}'.", &args.output);
         println!("{}", result.green().bold());
     }
 }
