@@ -1,12 +1,34 @@
 // Released under MIT License.
-// Copyright (c) 2022 Ladislav Bartos
+// Copyright (c) 2022-2023 Ladislav Bartos
 
-use std::env;
 use std::fs::File;
 use std::io::{self, Read, Write, Seek, SeekFrom};
 use std::process;
 
+use clap::Parser;
+use colored::Colorize;
 
+use termion::{clear, cursor};
+
+#[derive(Parser, Debug)]
+#[command(
+    author, 
+    version, 
+    about, 
+    long_about = "Concatenates XTC trajectories from simulations that directly follow each other. `xtcat` removes the first frame of each subsequent trajectory as it matches the last frame of the previous trajectory but does not renumber the frames or remove duplicate frames.")]
+struct Args {
+    /// XTC files to concatenate
+    #[clap(short = 'f', long = "files", num_args = 1.., value_delimiter = ' ', required = true)]
+    input_files: Vec<String>,
+    /// Name of the output file to save the concatenated trajectory to
+    #[clap(short = 'o', long = "output", required = true)]
+    output: String,
+    /// Do not print anything to standard output.
+    #[clap(short = 's', long = "silent")]
+    silent: bool,
+}
+
+/// Read an integer from an xdr file.
 fn read_xdr_int(file: &mut File) -> Result<i32, io::Error> {
     let mut buffer = [0u8; 4];
 
@@ -17,6 +39,7 @@ fn read_xdr_int(file: &mut File) -> Result<i32, io::Error> {
     Ok(result)
 }
 
+/// Append an xtc file to the end of open output file.
 fn add_xtc(input_path: &str, output: &mut File, remove_first_frame: bool) -> Result<(), io::Error> {
     // try opening the input file
     let mut input = File::open(input_path)?;
@@ -48,84 +71,80 @@ fn add_xtc(input_path: &str, output: &mut File, remove_first_frame: bool) -> Res
     output.write_all(&input_file_contents)?;
 
     Ok(())
-
 }
 
-fn parse_arguments(args: &Vec<String>) -> (Vec<String>, String) {
-    let mut input_files = Vec::new();
-    let mut output_file = String::from("output.xtc");
+/// Clear the terminal screen.
+fn clear_progress(len: u16) {
+    print!("{}", cursor::Up(len));
+    print!("{}", clear::AfterCursor);
+}
 
-    let mut input_block = false;
-    for mut i in 1..args.len() {
-        if args[i] == "-o" {
-            i += 1;
-            output_file = args[i].clone();
-            input_block = false;
+/// Print the current progress with reading input files.
+fn print_progress(input_files: &Vec<String>, current_index: usize, success: bool) {
+    for (i, file) in input_files.iter().enumerate() {
+        if !success && i == current_index - 1 {
+            println!("{}", file.red());
             continue;
         }
 
-        if input_block {
-            input_files.push(args[i].clone());
-            continue;
-        }
-
-        if args[i] == "-f" {
-            input_block = true;
-        }
+        if i < current_index {
+            println!("{}", file.green());
+        } else {
+            println!("{}", file);
+        };
     }
-
-    (input_files, output_file)
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let args = Args::parse();
 
-    // help option
-    for arg in &args {
-        if arg == "-h" || arg == "--help" {
-            println!("Usage: {} -f XTC_FILE1 XTC_FILE2 ... -o OUTPUT_XTC", args[0]);
-            process::exit(0);
-        }
-    }
-
-    // sanity check the arguments
-    if args.len() < 3 {
-        eprintln!("Incorrect number of arguments.");
-        println!("Usage: {} -f XTC_FILE1 XTC_FILE2 ... -o OUTPUT_XTC", args[0]);
-        process::exit(1);
-    }
-
-    // get input files and output file
-    let (input_files, output_file) = parse_arguments(&args);
-
-    print!("Concatenating {} files: ", input_files.len());
-    for file in &input_files {
-        print!("{} ", &file);
-    }
-    println!("\nOutput file: {}\n", &output_file);
+    if !args.silent { println!("{}", "\nXTCAT v0.3.0\n".bold()); }
 
     // open output file
-    let mut output = match File::create(&output_file) {
+    let mut output = match File::create(&args.output) {
         Ok(file) => file,
-        Err(error) => {
-            eprintln!("Error. Output file {} could not be opened for writing [{}]", &output_file, error);
+        Err(_) => {
+            let error = format!("Error. Output file '{}' could not be opened for writing.", &args.output);
+            eprintln!("{}", error.red().bold());
             process::exit(1);
         }
     };
 
-    let mut remove_first_frame = false;
-    for file in &input_files {
-        println!("Concatenating file {}...", &file);
-        io::stdout().flush().unwrap();
+    // print input file
+    if !args.silent {
+        println!("Concatenating {} files into '{}'...", &args.input_files.len(), &args.output.green());
+        print_progress(&args.input_files, 0, true);    
+    }
 
+    // read all input files
+    let mut remove_first_frame = false;
+    for (i, file) in args.input_files.iter().enumerate() {
         match add_xtc(&file, &mut output, remove_first_frame) {
-            Ok(_) => (),
-            Err(error) => {
-                eprintln!("Error. Could not read file {} [{}]", &file, error);
-                process::exit(1);
+            Ok(_) => {
+                if !args.silent {
+                    clear_progress(args.input_files.len() as u16);
+                    print_progress(&args.input_files, i + 1, true);
+                }
+            }
+
+            Err(_) => {
+                if !args.silent {
+                    clear_progress(args.input_files.len() as u16);
+                    print_progress(&args.input_files, i + 1, false);
+                }
+                let error = format!("Error. Could not read file '{}'. Aborting...", file);
+                println!("\n{}", error.red().bold());
+
+                process::exit(2);
             }
         }
         remove_first_frame = true;
     }
 
+    drop(output);
+
+    if !args.silent {
+        let result = format!("\nSuccessfully written output file '{}'.", &args.output);
+        println!("{}", result.green().bold());
+    }
 }
