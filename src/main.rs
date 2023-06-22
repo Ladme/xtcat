@@ -2,7 +2,7 @@
 // Copyright (c) 2022-2023 Ladislav Bartos
 
 use std::fs::File;
-use std::io::{self, Read, Write, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::process;
 
 use clap::Parser;
@@ -12,10 +12,11 @@ use termion::{clear, cursor};
 
 #[derive(Parser, Debug)]
 #[command(
-    author, 
-    version, 
-    about, 
-    long_about = "Concatenates XTC trajectories from simulations that directly follow each other. `xtcat` removes the first frame of each subsequent trajectory as it matches the last frame of the previous trajectory but does not renumber the frames or remove duplicate frames.")]
+    author,
+    version,
+    about,
+    long_about = "Concatenates XTC trajectories from simulations that directly follow each other. `xtcat` removes the first frame of each subsequent trajectory as it matches the last frame of the previous trajectory but does not renumber the frames or remove duplicate frames."
+)]
 struct Args {
     /// XTC files to concatenate
     #[clap(short = 'f', long = "files", num_args = 1.., value_delimiter = ' ', required = true)]
@@ -34,7 +35,10 @@ fn read_xdr_int(file: &mut File) -> Result<i32, io::Error> {
 
     file.read_exact(&mut buffer)?;
 
-    let result: i32 = (buffer[0] as i32) << 24 | (buffer[1] as i32) << 16 | (buffer[2] as i32) << 8 | (buffer[3] as i32);
+    let result: i32 = (buffer[0] as i32) << 24
+        | (buffer[1] as i32) << 16
+        | (buffer[2] as i32) << 8
+        | (buffer[3] as i32);
 
     Ok(result)
 }
@@ -64,7 +68,8 @@ fn add_xtc(input_path: &str, output: &mut File, remove_first_frame: bool) -> Res
     input.seek(SeekFrom::Start(start as u64))?;
 
     // load the contents of the input file
-    let mut input_file_contents: Vec<u8> = Vec::with_capacity((file_len as usize) - (start as usize));
+    let mut input_file_contents: Vec<u8> =
+        Vec::with_capacity((file_len as usize) - (start as usize));
     input.read_to_end(&mut input_file_contents)?;
 
     // write the contents of the file to the output
@@ -98,13 +103,18 @@ fn print_progress(input_files: &Vec<String>, current_index: usize, success: bool
 fn main() {
     let args = Args::parse();
 
-    if !args.silent { println!("{}", "\nXTCAT v0.3.0\n".bold()); }
+    if !args.silent {
+        println!("{}", "\nXTCAT v0.3.0\n".bold());
+    }
 
     // open output file
     let mut output = match File::create(&args.output) {
         Ok(file) => file,
         Err(_) => {
-            let error = format!("Error. Output file '{}' could not be opened for writing.", &args.output);
+            let error = format!(
+                "Error. Output file '{}' could not be opened for writing.",
+                &args.output
+            );
             eprintln!("{}", error.red().bold());
             process::exit(1);
         }
@@ -112,8 +122,12 @@ fn main() {
 
     // print input file
     if !args.silent {
-        println!("Concatenating {} files into '{}'...", &args.input_files.len(), &args.output.green());
-        print_progress(&args.input_files, 0, true);    
+        println!(
+            "Concatenating {} files into '{}'...",
+            &args.input_files.len(),
+            &args.output.green()
+        );
+        print_progress(&args.input_files, 0, true);
     }
 
     // read all input files
