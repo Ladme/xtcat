@@ -196,7 +196,7 @@ fn main() {
     // read all input files
     let mut remove_first_frame = false;
     for (i, file) in args.input_files.iter().enumerate() {
-        match add_xtc(&file, &mut output, remove_first_frame) {
+        match add_xtc(file, &mut output, remove_first_frame) {
             Ok(_) => {
                 if !args.silent {
                     clear_progress(args.input_files.len() as u16);

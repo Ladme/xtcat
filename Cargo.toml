@@ -2,12 +2,13 @@
 name = "xtcat"
 description = "Fast XTC file concatenator"
 license = "MIT"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 repository = "https://github.com/Ladme/xtcat"
 readme = "README.md"
 keywords = ["gromacs", "xtc", "molecular-dynamics"]
 categories = ["command-line-utilities", "science"]
+exclude = ["/tests"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
